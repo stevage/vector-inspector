@@ -261,7 +261,7 @@ body {
   background:white;
   border:1px solid lightgrey;
   padding:0 1em;
-  overflow-y:scroll;
+  /* overflow-y:scroll; */
 }
 
 #layers {
@@ -299,10 +299,23 @@ body {
 
 .mapbox-gl-inspect_popup {
   font-size:10px;
+  pointer-events: none;
 }
 
 .mapbox-gl-inspect_property-value {
 }
 
+.mapboxgl-ctrl-inspect {
+  /* height:50px; */
+  display:none;
+}
+
+.mapboxgl-popup {
+  pointer-events: none;
+}
+
+.mapbboxgl-popup * {
+  pointer-events: none;
+}
 
 </style>
