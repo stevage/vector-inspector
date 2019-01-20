@@ -27,10 +27,6 @@
 
 <script>
 require('mapbox-gl-inspect/dist/mapbox-gl-inspect.css');
-//https://cartocdn-gusc-d.global.ssl.fastly.net/planninglabs/api/v1/map/cb539c7b2550978de9d0ee828d99359e:1539281332384/13/2413/3078.mvt
-//https://tiles.planninglabs.nyc/data/v3/14/4826/6157.pbf
-//http://localhost:4005/VMLITE/9/461/313.pbf
-// import HelloWorld from './components/HelloWorld.vue'
 
 const Vue = require('vue');
 const request = require('request');
