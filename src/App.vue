@@ -5,9 +5,9 @@
     h1 Vector Inspector
     | Look inside the contents of vector tiles from third party sources!
     .credit By Steve Bennett (@stevage1) - <a href="http://hire.stevebennett.me">hire.stevebennett.me</a>
-    | Paste the URL of one vector tile <small>(eg https://tiles.planninglabs.nyc/data/v3/14/4826/6157.pbf)</small>
+    | Paste the URL of one vector tile
     br
-    input#url(v-model="url")
+    input#url(v-model="url" placeholder="https://tiles.planninglabs.nyc/data/v3/14/4826/6157.pbf")
     br
     br
   #middle    
@@ -210,6 +210,7 @@ body {
   flex-direction:column;
   height:100vh;
   width:100vw;
+  overflow:hidden;
   
 }
 
@@ -222,6 +223,7 @@ body {
 #middle {
     flex-grow:1;
     display: flex;
+    min-height:0;
 }
 
 #map {
@@ -235,7 +237,7 @@ body {
   background:white;
   border:1px solid lightgrey;
   padding:0 1em;
-  /* overflow-y:scroll; */
+  overflow-y:scroll;
 }
 
 #layers {
@@ -284,12 +286,13 @@ body {
   display:none;
 }
 
-.mapboxgl-popup {
+.mapboxgl-popup, .mapboxgl-popup * {
   pointer-events: none;
 }
 
-.mapbboxgl-popup * {
-  pointer-events: none;
+.mapboxgl-popup {
+  max-height:500px;
+  overflow-y:hidden;
 }
 
 </style>
