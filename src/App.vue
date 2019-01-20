@@ -5,7 +5,7 @@
     h1 Vector Inspector
     | Look inside the contents of vector tiles from third party sources!
     .credit By Steve Bennett (@stevage1) - <a href="http://hire.stevebennett.me">hire.stevebennett.me</a>
-    | URL of one vector tile (eg https://tiles.planninglabs.nyc/data/v3/14/4826/6157.pbf)
+    | Paste the URL of one vector tile <small>(eg https://tiles.planninglabs.nyc/data/v3/14/4826/6157.pbf)</small>
     br
     input#url(v-model="url")
     br

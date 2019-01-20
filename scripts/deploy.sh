@@ -1,11 +1,9 @@
-OUTDIR=../vector-inspector-gh-pages
+OUTDIR=docs
 npm run build
 
-rm $OUTDIR/js/*
-rm $OUTDIR/css/*
+rm -rf $OUTDIR/*
 cp -pr dist/* $OUTDIR/
 cd $OUTDIR/
-git add js/*
-git add css/* 
-git commit -am '.' 
+git add $OUTDIR/*
+git commit -am 'Update' 
 git push
