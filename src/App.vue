@@ -93,6 +93,7 @@ function showLayers(xyzUrl, layers) {
     function resetValues(app) {
       Object.keys(layers).forEach(l => app.$set(app.values, l, {}));
     }
+    let map = window.map;
     try {
       ourLayers.forEach(map.removeLayer.bind(map));
     } catch(e) { 
@@ -174,29 +175,6 @@ function showLayers(xyzUrl, layers) {
       queryParameters: { layers: ourLayers }      
     });
     map.addControl(inspectControl);
-
-
-    // ourLayers.forEach(l => map.on('click', l, e => {
-    //   const f = map.queryRenderedFeatures(e.point, { layers: [l] });
-    //   if (f[0]) {
-    //     this
-    //   }
-    // }));
-
-    // Object.keys(layers).forEach(l => {
-    //   map.addLayer({
-    //     id: l + '-fill',
-    //     source: 'source',
-    //     'source-layer': l,
-    //     type: 'line',
-    //     paint: { 'line-color': 'maroon' },
-    //     filter: ['==', '$type', 'Polygon']
-
-    //   });
-    //   ourLayers.push(l + '-fill');
-    // });
-
-
 
 }
 
