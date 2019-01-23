@@ -9,7 +9,9 @@
     br
     input#url(v-model="url" placeholder="https://tiles.planninglabs.nyc/data/v3/14/4826/6157.pbf")
     br
-    br
+    small
+      input#cors(v-model="cors" type="checkbox")
+      label(for="cors") Use CORS proxy
   #middle    
     #sidepanel
       h3 Layers
@@ -41,6 +43,7 @@ const cssColors =  ['#a6cee3', '#1f78b4', '#b2df8a', '#33a02c', '#fb9a99', '#e31
 const test = window.location.hash.match(/test/);
 const aus = window.location.hash.match(/aus/);
 
+//https://tile.nextzen.org/tilezen/vector/v1/512/all/14/4826/6157.mvt?api_key=
 export default {
   name: 'app',
   components: {
@@ -48,7 +51,8 @@ export default {
   }, data: () => ({
     url: test ? 'https://tiles.planninglabs.nyc/data/v3/14/4826/6157.pbf' : undefined,
     layers: undefined,
-    values: {}
+    values: {},
+    cors: false
   }), mounted() {
         // window.app.Map = this;
         window.setTimeout(initMap.bind(this), 1000);
@@ -59,11 +63,16 @@ export default {
     }
   },
   watch: {
-    url() {
+    url() { this.refresh() },
+    cors() { this.refresh() }
+      
+  }, methods: {
+    refresh() {
       if (this.url.match(/\.(pbf|mvt)/)) {
         void request({
-            url: this.url,
-            encoding: null
+            url: this.cors ? 'https://cors-anywhere.herokuapp.com/' + this.url : this.url,
+            encoding: null,
+            headers: cors ? { Origin: window.location.host }: {}
         }, (err, response, body) => {
             try {
                 body = zlib.gunzipSync(body);
@@ -82,7 +91,8 @@ export default {
       }
     }
   }
-}
+};
+
 let ourLayers = [];
 let inspectControl;
 function showLayers(xyzUrl, layers) {
@@ -110,45 +120,31 @@ function showLayers(xyzUrl, layers) {
     this.values = {};
     resetValues(this);
     Object.keys(layers).forEach((l, i) => {
-      map.addLayer({
-        id: l + '-fill',
-        source: 'source',
-        'source-layer': l,
-        type: 'fill',
-        paint: { 
-          'fill-color': layers[l]._color, 
-          'fill-opacity': 0.5
-        },
+      map.U.addFill(l + '-fill', 'source', {
+        sourceLayer: l,
+        fillColor: layers[l]._color, 
+        fillOpacity: 0.5,
+        // fillOutlineColor: 'darkgray',
         filter: ['any', ['==', '$type', 'Polygon']]
       });
       ourLayers.push(l + '-fill');
     });
     Object.keys(layers).forEach((l, i) => {
-      map.addLayer({
-        id: l + '-line',
-        source: 'source',
-        'source-layer': l,
-        type: 'line',
-        paint: { 
-          'line-color': layers[l]._color, 
-          'line-width': {
-            stops: [[11, 1], [14, 5]]
-          }
+      map.U.addLine(l + '-line', 'source', {
+        sourceLayer: l,
+        lineColor: layers[l]._color, 
+        lineWidth: {
+          stops: [[11, 1], [14, 5]]
         },
         filter: ['any', ['==', '$type', 'LineString']]//, ['==', '$type', 'Polygon']]
       });
       ourLayers.push(l + '-line');
     });
     Object.keys(layers).forEach((l, i) => {
-      map.addLayer({
-        id: l + '-circle',
-        source: 'source',
-        'source-layer': l,
-        type: 'circle',
-        paint: { 
-          'circle-color': layers[l]._color,
-          'circle-radius': { stops: [[11, 2], [14, 5]] }
-        },
+      map.addCircle(l + '-circle', 'source', {
+        sourceLayer: l,
+        circleColor: layers[l]._color,
+        circleRadius: { stops: [[11, 2], [14, 5]] },
         filter: ['==', '$type', 'Point']
       });
       ourLayers.push(l + '-circle');
@@ -188,6 +184,7 @@ function initMap() {
         center: aus ? [145, -37.8] : [-73.97509801962406, 40.762338800719704],
         zoom: 9
     });
+    require('mapbox-gl-utils').init(map);
 
 
     window.map = map;
