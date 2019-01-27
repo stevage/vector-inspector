@@ -42,7 +42,7 @@ const cssColors =  ['#a6cee3', '#1f78b4', '#b2df8a', '#33a02c', '#fb9a99', '#e31
 
 const test = window.location.hash.match(/test/);
 const aus = window.location.hash.match(/aus/);
-
+//http://localhost:4040/buildings/13/2411/3079.pbf
 //https://tile.nextzen.org/tilezen/vector/v1/512/all/14/4826/6157.mvt?api_key=
 export default {
   name: 'app',
@@ -60,6 +60,8 @@ export default {
   computed: {
     xyzUrl() {
       return this.url.replace(/\/\d+\/\d+\/\d+\./, '/{z}/{x}/{y}.');
+    }, tileJsonUrl() {
+      return this.url.replace(/\/\d+\/\d+\/\d+\.[a-zA-Z]*/, '/index.json');
     }
   },
   watch: {
@@ -68,12 +70,15 @@ export default {
       
   }, methods: {
     refresh() {
+      const req = (url, params, cb) => {
+        return request({
+            url: this.cors ? 'https://cors-anywhere.herokuapp.com/' + url : url,
+            headers: this.cors ? { Origin: window.location.host }: {},
+            ...params,
+        }, cb); 
+      }
       if (this.url.match(/\.(pbf|mvt)/)) {
-        void request({
-            url: this.cors ? 'https://cors-anywhere.herokuapp.com/' + this.url : this.url,
-            encoding: null,
-            headers: cors ? { Origin: window.location.host }: {}
-        }, (err, response, body) => {
+        req(this.url, { encoding: null }, (err, response, body) => {
             try {
                 body = zlib.gunzipSync(body);
             } catch (e) {
@@ -88,6 +93,14 @@ export default {
             showLayers.call(this, this.xyzUrl, this.layers);
               
         })
+
+        req(this.tileJsonUrl, { json: true }, (err, response, body) => {
+          if (body.center) {
+            window.map.panTo(body.center, { zoom: body.center[2] });
+          }
+          console.log(body);
+        });
+
       }
     }
   }
@@ -141,7 +154,7 @@ function showLayers(xyzUrl, layers) {
       ourLayers.push(l + '-line');
     });
     Object.keys(layers).forEach((l, i) => {
-      map.addCircle(l + '-circle', 'source', {
+      map.U.addCircle(l + '-circle', 'source', {
         sourceLayer: l,
         circleColor: layers[l]._color,
         circleRadius: { stops: [[11, 2], [14, 5]] },
