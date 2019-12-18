@@ -5,7 +5,11 @@
     h1 Vector Inspector
     | Look inside the contents of vector tiles from third party sources!
     .credit By Steve Bennett (@stevage1) - <a href="http://hire.stevebennett.me">hire.stevebennett.me</a>
-    | Paste the URL of one vector tile
+    | Paste the URL of one vector tile (
+    code .../8/531/489.pbf
+    | ) OR a TileJSON endpoint (
+    code .../index.json
+    | )
     br
     input#url(v-model="url" placeholder="https://tiles.planninglabs.nyc/data/v3/14/4826/6157.pbf")
     br
@@ -21,7 +25,7 @@
           table#attributes
             tr#attribute(v-for="key in layer._keys")
               td#key {{ key }}
-              td#key {{ values[layer.name][key] }}
+              td#key {{ values[layer.name]&& values[layer.name][key] }}
     #map
   #bottom
     | Source: <a href="https://github.com/stevage/vector-inspector">https://github.com/stevage/vector-inspector</a>
@@ -52,14 +56,15 @@ export default {
     url: test ? 'https://tiles.planninglabs.nyc/data/v3/14/4826/6157.pbf' : undefined,
     layers: undefined,
     values: {},
-    cors: false
+    cors: false,
+    tilejsonXyzUrl: undefined
   }), mounted() {
         // window.app.Map = this;
         window.setTimeout(initMap.bind(this), 1000);
     }, 
   computed: {
     xyzUrl() {
-      return this.url.replace(/\/\d+\/\d+\/\d+\./, '/{z}/{x}/{y}.');
+      return this.tilejsonXyzUrl || this.url.replace(/\/\d+\/\d+\/\d+\./, '/{z}/{x}/{y}.');
     }, tileJsonUrl() {
       return this.url.replace(/\/\d+\/\d+\/\d+\.[a-zA-Z]*/, '/index.json');
     }
@@ -86,6 +91,7 @@ export default {
               // console.error(e);
             }
             const tile = new VectorTile(new Pbf(body));
+            console.log(tile);
             // console.log('Vector source layers found: ');
             Object.keys(tile.layers).forEach((layer, i) => tile.layers[layer]._color = cssColors[i]);
             this.layers = tile.layers;
@@ -101,6 +107,19 @@ export default {
           console.log(body);
         });
 
+      } else if (this.url.match(/\.json/)) {
+        req(this.url, { json: true }, (err, response, body) => {
+          this.layers = {};
+          // TODO should just be an array, not dict of ids?
+          body.vector_layers.forEach((layer, i) => this.layers[layer.id] = {
+            _color:  cssColors[i],
+            name: layer.id,
+            _keys: Object.keys(layer.fields)
+          });
+          this.tilejsonXyzUrl = body.tiles[0];
+          showLayers.call(this, this.xyzUrl, this.layers);
+
+        });
       }
     }
   }
@@ -149,7 +168,7 @@ function showLayers(xyzUrl, layers) {
         lineWidth: {
           stops: [[11, 1], [14, 5]]
         },
-        filter: ['any', ['==', '$type', 'LineString']]//, ['==', '$type', 'Polygon']]
+        filter: ['any', ['==', '$type', 'LineString'], ['==', '$type', 'Polygon']]
       });
       ourLayers.push(l + '-line');
     });
@@ -183,7 +202,7 @@ function showLayers(xyzUrl, layers) {
       }), showInspectMap: true,
       queryParameters: { layers: ourLayers }      
     });
-    map.addControl(inspectControl);
+    // map.addControl(inspectControl);
 
 }
 
@@ -192,16 +211,18 @@ function initMap() {
     let map = new mapboxgl.Map({
         container: 'map', 
         style: { version: 8, sources: {}, layers: [] },
-        // style: 'mapbox://styles/stevage/cjntir8r53vuo2spihcvac3t8', // light
+        style: 'mapbox://styles/mapbox/light-v8', // light
         // center: [-74.50, 40], 
         center: aus ? [145, -37.8] : [-73.97509801962406, 40.762338800719704],
-        zoom: 9
+        zoom: 13
     });
+    map.addControl(new mapboxgl.NavigationControl());
     require('mapbox-gl-utils').init(map);
 
 
     window.map = map;
 }
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 </script>
 
