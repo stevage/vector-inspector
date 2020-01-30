@@ -26,6 +26,8 @@
             tr#attribute(v-for="key in layer._keys")
               td#key {{ key }}
               td#key {{ values[layer.name]&& values[layer.name][key] }}
+        input(id="showbBoundaries" type="checkbox" v-model="showBoundaries") 
+        label(for="showBoundaries") Show tile boundaries
     #map
   #bottom
     | Source: <a href="https://github.com/stevage/vector-inspector">https://github.com/stevage/vector-inspector</a>
@@ -53,11 +55,12 @@ export default {
   components: {
     // HelloWorld
   }, data: () => ({
-    url: test ? 'https://tiles.planninglabs.nyc/data/v3/14/4826/6157.pbf' : undefined,
+    url: undefined,
     layers: undefined,
     values: {},
     cors: false,
-    tilejsonXyzUrl: undefined
+    tilejsonXyzUrl: undefined,
+    showBoundaries: false
   }), mounted() {
         // window.app.Map = this;
         window.setTimeout(initMap.bind(this), 1000);
@@ -70,8 +73,14 @@ export default {
     }
   },
   watch: {
-    url() { this.refresh() },
-    cors() { this.refresh() }
+    url() { 
+      this.refresh();
+      localStorage.setItem('url', this.url);
+    },
+    cors() { this.refresh() },
+    showBoundaries() {
+      map.showTileBoundaries = this.showBoundaries
+    }
       
   }, methods: {
     refresh() {
@@ -155,21 +164,23 @@ function showLayers(xyzUrl, layers) {
       map.U.addFill(l + '-fill', 'source', {
         sourceLayer: l,
         fillColor: layers[l]._color, 
-        fillOpacity: 0.5,
-        // fillOutlineColor: 'darkgray',
+        fillOpacity: ['case', ['to-boolean', ['feature-state', 'hover']], 0.7, 0.5],
+        fillOutlineColor: ['case', ['to-boolean', ['feature-state', 'hover']], 'black','transparent'],
         filter: ['any', ['==', '$type', 'Polygon']]
       });
+      map.U.hoverFeatureState(l + '-fill');
       ourLayers.push(l + '-fill');
     });
     Object.keys(layers).forEach((l, i) => {
       map.U.addLine(l + '-line', 'source', {
         sourceLayer: l,
-        lineColor: layers[l]._color, 
+        lineColor: ['case', ['to-boolean', ['feature-state', 'hover']], 'black',layers[l]._color], //layers[l]._color, 
         lineWidth: {
           stops: [[11, 1], [14, 5]]
         },
         filter: ['any', ['==', '$type', 'LineString'], ['==', '$type', 'Polygon']]
       });
+      
       ourLayers.push(l + '-line');
     });
     Object.keys(layers).forEach((l, i) => {
@@ -192,6 +203,8 @@ function showLayers(xyzUrl, layers) {
         };
       });
     });
+    
+
     if (inspectControl) {
       map.removeControl(inspectControl);
     }
@@ -214,10 +227,14 @@ function initMap() {
         style: 'mapbox://styles/mapbox/light-v8', // light
         // center: [-74.50, 40], 
         center: aus ? [145, -37.8] : [-73.97509801962406, 40.762338800719704],
-        zoom: 13
+        zoom: 13,
+        maxTileCacheSize: 0,
     });
     map.addControl(new mapboxgl.NavigationControl());
     require('mapbox-gl-utils').init(map);
+    if (localStorage.getItem('url')) {
+      this.url = localStorage.getItem('url');
+    }
 
 
     window.map = map;
@@ -283,7 +300,7 @@ body {
   margin-left:0 2em;
   padding: 0; 
   font-size:8pt;
-  line-height:4px;
+  line-height:5px;
 }
 #key {
     width: 20em;
