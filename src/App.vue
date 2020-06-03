@@ -20,7 +20,8 @@
     #sidepanel
       h3 Layers
       #layers
-        AttributesTable(:layers="layers" :values="values")
+        AttributesTable(:layers="layers" :values="values" @clickAttribute="summariseAttribute")
+        AttributeSummary(:valueCounts="valueCounts" :attributeName="focusedAttribute")
         input(id="showbBoundaries" type="checkbox" v-model="showBoundaries")
         label(for="showBoundaries") Show tile boundaries
     Map(:layers="layers" :xyzUrl="xyzUrl" @values-update="updateValues")
@@ -31,6 +32,7 @@
 <script>
 require("mapbox-gl-inspect/dist/mapbox-gl-inspect.css");
 import AttributesTable from "./components/AttributesTable";
+import AttributeSummary from "@/components/AttributeSummary.vue";
 import Map from "@/components/Map.vue";
 
 const request = require("request");
@@ -60,6 +62,7 @@ export default {
     name: "app",
     components: {
         AttributesTable,
+        AttributeSummary,
         Map,
     },
     data: () => ({
@@ -69,6 +72,8 @@ export default {
         cors: false,
         tilejsonXyzUrl: "",
         showBoundaries: false,
+        focusedAttribute: undefined,
+        valueCounts: {},
     }),
     mounted() {
         window.setTimeout(() => {
@@ -106,6 +111,20 @@ export default {
         },
     },
     methods: {
+        summariseAttribute(attribute, layer) {
+            this.focusedAttribute = attribute;
+            this.focusedLayer = layer;
+            const features = map.querySourceFeatures("source", {
+                sourceLayer: layer,
+            });
+            this.valueCounts = {};
+            // console.log(features);
+            for (const { properties } of features) {
+                this.valueCounts[properties[attribute]] =
+                    (this.valueCounts[properties[attribute]] || 0) + 1;
+            }
+            console.log(this.valueCounts);
+        },
         updateValues(newValues) {
             this.values = newValues;
         },
@@ -205,10 +224,6 @@ body {
 }
 
 #layers {
-    font-family: Consolas, Monaco, "Courier New", Courier, monospace;
-    font-size: 10pt;
-
-    height: 50px;
     /* display:none; */
 }
 
@@ -248,5 +263,9 @@ body {
 .mapboxgl-popup {
     max-height: 500px;
     overflow-y: hidden;
+}
+
+.fixed {
+    font-family: Consolas, Monaco, "Courier New", Courier, monospace;
 }
 </style>
