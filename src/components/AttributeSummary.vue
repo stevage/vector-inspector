@@ -1,31 +1,29 @@
 <template lang="pug">
 #AttributeSummary(v-if="attributeName")
-    h3 Summary of
-        span.fixed   {{ attributeName }}
     table
-        tr(v-for="([value, count]) of sortedCounts")
+        tr
+            td(style="width: 20px")
+            th Value of "{{attributeName}}"
+            th Count
+        tr(v-for="([value, count]) of sortedValueCounts" @mouseover="$emit('hoverValue', value, count)" @mouseout="$emit('hoverValue')")
+            td(style="width: 20px")
+                span(v-if="value===focusedValue") &rarr;
             td {{ value }}
             td {{ count }}
 </template>
 
 <script>
 export default {
-    name: "AttributeSummary",
+    name: 'AttributeSummary',
     props: {
         attributeName: String,
-        valueCounts: Object,
+        sortedValueCounts: Array,
+        focusedValue: [String, Number],
     },
     data: () => ({}),
 
     created() {
         window.AttributeSummary = this;
-    },
-    computed: {
-        sortedCounts() {
-            return Object.keys(this.valueCounts)
-                .map(v => [v, this.valueCounts[v]])
-                .sort(([, a], [, b]) => b - a);
-        },
     },
 };
 </script>
@@ -38,7 +36,12 @@ h3 {
     font-size: 80%;
 }
 table {
-    font-family: Consolas, Monaco, "Courier New", Courier, monospace;
+    margin: 1em 0;
+    font-family: Consolas, Monaco, 'Courier New', Courier, monospace;
     font-size: 10pt;
+    border: 1px solid #ccc;
+}
+th {
+    padding: 0 1em 0 0;
 }
 </style>

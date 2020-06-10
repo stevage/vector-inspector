@@ -20,110 +20,131 @@
     #sidepanel
       h3 Layers
       #layers
-        AttributesTable(:layers="layers" :values="values" @clickAttribute="summariseAttribute")
-        AttributeSummary(:valueCounts="valueCounts" :attributeName="focusedAttribute")
+        AttributesTable(:layers="layers" :values="values" @clickAttribute="summariseAttribute" :focusedAttribute="focusedAttribute" :focusedLayer="focusedLayer")
+        AttributeSummary(:sortedValueCounts="sortedValueCounts" :attributeName="focusedAttribute" @hoverValue="value => { focusedValue = value}" :focusedValue="focusedValue")
         input(id="showbBoundaries" type="checkbox" v-model="showBoundaries")
         label(for="showBoundaries") Show tile boundaries
-    Map(:layers="layers" :xyzUrl="xyzUrl" @values-update="updateValues")
+    MapComponent(:layers="layers" :xyzUrl="xyzUrl" @values-update="updateValues" @move="updateAttributeSummary" :focusValue="focusedValue" :focusLayer="focusedLayer" :focusField="focusedAttribute")
   #bottom
     | Source: <a href="https://github.com/stevage/vector-inspector">https://github.com/stevage/vector-inspector</a>
 </template>
 
 <script>
-require("mapbox-gl-inspect/dist/mapbox-gl-inspect.css");
-import AttributesTable from "./components/AttributesTable";
-import AttributeSummary from "@/components/AttributeSummary.vue";
-import Map from "@/components/Map.vue";
+require('mapbox-gl-inspect/dist/mapbox-gl-inspect.css');
+import AttributesTable from './components/AttributesTable';
+import AttributeSummary from '@/components/AttributeSummary.vue';
+import MapComponent from '@/components/Map.vue';
 
-const request = require("request");
-const VectorTile = require("@mapbox/vector-tile").VectorTile;
-const Pbf = require("pbf");
-const zlib = require("zlib");
-const MapboxInspect = require("mapbox-gl-inspect");
+const request = require('request');
+const VectorTile = require('@mapbox/vector-tile').VectorTile;
+const Pbf = require('pbf');
+const zlib = require('zlib');
+const MapboxInspect = require('mapbox-gl-inspect');
 const cssColors = [
-    "#a6cee3",
-    "#1f78b4",
-    "#b2df8a",
-    "#33a02c",
-    "#fb9a99",
-    "#e31a1c",
-    "#fdbf6f",
-    "#ff7f00",
-    "#cab2d6",
-    "#6a3d9a",
-    "#bb5",
-    "#b15928",
-    ...Object.keys(require("css-color-names")),
+    '#1f78b4',
+    // '#b2df8a',
+    '#33a02c',
+    '#e31a1c',
+    '#ff7f00',
+    'hsl(90,50%,30%)', // '#a6cee3',
+    '#fb9a99',
+    '#cab2d6',
+    '#fdbf6f',
+    'hsl(240,90%,60%)', // '#a6cee3',
+    '#6a3d9a',
+    '#bb5',
+    '#b15928',
+    ...Object.keys(require('css-color-names')),
 ];
 
 //http://localhost:4040/buildings/13/2411/3079.pbf
 //https://tile.nextzen.org/tilezen/vector/v1/512/all/14/4826/6157.mvt?api_key=
+
 export default {
-    name: "app",
+    name: 'app',
     components: {
         AttributesTable,
         AttributeSummary,
-        Map,
+        MapComponent,
     },
     data: () => ({
-        url: "",
+        url: (window.location.hash.match(/url=([^&]+)/) || [])[1] || '',
         layers: [],
         values: {},
         cors: false,
-        tilejsonXyzUrl: "",
+        tilejsonXyzUrl: '',
         showBoundaries: false,
+        focusedLayer: undefined,
         focusedAttribute: undefined,
+        focusedValue: undefined,
         valueCounts: {},
+        sortedValueCounts: [],
     }),
     mounted() {
         window.setTimeout(() => {
-            if (localStorage.getItem("url")) {
-                this.url = localStorage.getItem("url");
+            if (localStorage.getItem('url') && !this.url) {
+                // this.url = localStorage.getItem("url");
             }
         }, 1000);
 
-        // window.app.Map = this;
+        window.App = this;
     },
     computed: {
         xyzUrl() {
             return (
                 this.tilejsonXyzUrl ||
-                this.url.replace(/\/\d+\/\d+\/\d+\./, "/{z}/{x}/{y}.")
+                this.url.replace(/\/\d+\/\d+\/\d+\./, '/{z}/{x}/{y}.')
             );
         },
         tileJsonUrl() {
             return this.url.replace(
                 /\/\d+\/\d+\/\d+\.[a-zA-Z]*/,
-                "/index.json",
+                '/index.json',
             );
         },
     },
     watch: {
-        url() {
-            this.refresh();
-            localStorage.setItem("url", this.url);
+        url: {
+            handler() {
+                this.refresh();
+                localStorage.setItem('url', this.url);
+                window.location.hash = window.location.hash.replace(
+                    /(\??&?url=[^&]+|$)/,
+                    `&url=${this.url}`,
+                );
+            },
+            immediate: true,
         },
         cors() {
             this.refresh();
         },
         showBoundaries() {
-            map.showTileBoundaries = this.showBoundaries;
+            window.map.showTileBoundaries = this.showBoundaries;
         },
     },
     methods: {
         summariseAttribute(attribute, layer) {
             this.focusedAttribute = attribute;
             this.focusedLayer = layer;
-            const features = map.querySourceFeatures("source", {
-                sourceLayer: layer,
-            });
-            this.valueCounts = {};
-            // console.log(features);
-            for (const { properties } of features) {
-                this.valueCounts[properties[attribute]] =
-                    (this.valueCounts[properties[attribute]] || 0) + 1;
+            this.updateAttributeSummary();
+        },
+        updateAttributeSummary() {
+            if (!this.focusedAttribute) {
+                return;
             }
-            console.log(this.valueCounts);
+            const features = window.map.querySourceFeatures('source', {
+                sourceLayer: this.focusedLayer,
+            });
+            // we have to use Map instead of a regular object in order to preserve the type of numeric keys
+            this.valueCounts = new Map();
+            for (const { properties } of features) {
+                const value = properties[this.focusedAttribute];
+                const count = this.valueCounts.get(value);
+                this.valueCounts.set(value, (count || 0) + 1);
+            }
+            this.sortedValueCounts = Array.from(
+                this.valueCounts.entries(),
+            ).sort(([, a], [, b]) => b - a);
         },
         updateValues(newValues) {
             this.values = newValues;
@@ -133,7 +154,7 @@ export default {
                 return request(
                     {
                         url: this.cors
-                            ? "https://cors-anywhere.herokuapp.com/" + url
+                            ? 'https://cors-anywhere.herokuapp.com/' + url
                             : url,
                         headers: this.cors
                             ? { Origin: window.location.host }
@@ -151,17 +172,18 @@ export default {
                         // probably not a zip file
                         // console.error(e);
                     }
+                    if (!body) {
+                        this.layers = [];
+                        console.log('No body when requesting ', this.url);
+                        return;
+                    }
                     const tile = new VectorTile(new Pbf(body));
                     console.log(tile);
                     // console.log('Vector source layers found: ');
-                    Object.keys(tile.layers).forEach(
-                        (layer, i) =>
-                            (tile.layers[layer]._color = cssColors[i]),
-                    );
-                    console.log(tile.layers);
-                    this.layers = Object.keys(tile.layers).map(
-                        id => tile.layers[id],
-                    );
+                    this.layers = Object.keys(tile.layers).map((id, i) => ({
+                        ...tile.layers[id],
+                        _color: cssColors[i],
+                    }));
                 });
 
                 req(this.tileJsonUrl, { json: true }, (err, response, body) => {
@@ -179,6 +201,9 @@ export default {
                     }));
                     this.tilejsonXyzUrl = body.tiles[0];
                 });
+            } else {
+                this.layers = [];
+                this.values = {};
             }
         },
     },
@@ -192,7 +217,7 @@ body {
     padding: 0;
 }
 #app {
-    font-family: "Avenir", Helvetica, Arial, sans-serif;
+    font-family: 'Avenir', Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     color: #2c3e50;
@@ -266,6 +291,6 @@ body {
 }
 
 .fixed {
-    font-family: Consolas, Monaco, "Courier New", Courier, monospace;
+    font-family: Consolas, Monaco, 'Courier New', Courier, monospace;
 }
 </style>
