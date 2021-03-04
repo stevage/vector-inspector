@@ -13,9 +13,15 @@
     br
     input#url(v-model="url" placeholder="https://tiles.planninglabs.nyc/data/v3/14/4826/6157.pbf")
     br
-    small
-      input#cors(v-model="cors" type="checkbox")
-      label(for="cors") Use CORS proxy
+    label
+        input#cors(v-model="cors" type="checkbox")
+        small Use CORS proxy
+    //- label
+    //-     input(v-model="tms" type="checkbox")
+    //-     small Use TMS tiling scheme (flipped Y).
+    label
+        input(v-model="zyx" type="checkbox")
+        small URL is Z/Y/X (not Z/X/Y)
   #middle
     #sidepanel
       h3 Layers
@@ -24,7 +30,7 @@
         AttributeSummary(:sortedValueCounts="sortedValueCounts" :attributeName="focusedAttribute" @hoverValue="value => { focusedValue = value}" :focusedValue="focusedValue")
         input(id="showbBoundaries" type="checkbox" v-model="showBoundaries")
         label(for="showBoundaries") Show tile boundaries
-    MapComponent(:layers="layers" :xyzUrl="xyzUrl" @values-update="updateValues" @move="updateAttributeSummary" :focusValue="focusedValue" :focusLayer="focusedLayer" :focusField="focusedAttribute")
+    MapComponent(:layers="layers" :xyzUrl="xyzUrl" :tms="tms" @values-update="updateValues" @move="updateAttributeSummary" :focusValue="focusedValue" :focusLayer="focusedLayer" :focusField="focusedAttribute")
   #bottom
     | Source: <a href="https://github.com/stevage/vector-inspector">https://github.com/stevage/vector-inspector</a>
 </template>
@@ -72,6 +78,8 @@ export default {
         layers: [],
         values: {},
         cors: false,
+        tms: false,
+        zyx: !!window.location.hash.match(/zyx/),
         tilejsonXyzUrl: '',
         showBoundaries: false,
         focusedLayer: undefined,
@@ -91,27 +99,41 @@ export default {
     },
     computed: {
         xyzUrl() {
-            return (
-                this.tilejsonXyzUrl ||
-                this.url.replace(/\/\d+\/\d+\/\d+\./, '/{z}/{x}/{y}.')
+            if (this.tilejsonXyzUrl) {
+                return this.tilejsonXyzUrl;
+            }
+            return this.url.replace(
+                /\d+\/\d+\/\d+/,
+                this.zyx ? '{z}/{y}/{x}' : '{z}/{x}/{y}',
             );
         },
         tileJsonUrl() {
             return this.url.replace(
-                /\/\d+\/\d+\/\d+\.[a-zA-Z]*/,
+                /\/\d+\/\d+\/\d+(\.[a-zA-Z]*)?/,
                 '/index.json',
             );
         },
+        urlParams() {
+            return this.url + this.zyx;
+        },
     },
     watch: {
-        url: {
+        urlParams: {
             handler() {
                 this.refresh();
                 localStorage.setItem('url', this.url);
-                window.location.hash = window.location.hash.replace(
-                    /(\??&?url=[^&]+|$)/,
-                    `&url=${this.url}`,
-                );
+                const loc = ((window.location.hash || '').match(
+                    /&loc=[.0-9/-]+/,
+                ) || [])[0];
+                window.location.hash =
+                    `?url=${this.url}` +
+                    (this.zyx ? '&zyx' : '') +
+                    (loc ? loc : '');
+                // window.location.hash = window.location.hash.replace(
+                //     /(\??&?url=[^&]+|$)/,
+                //     `&url=${this.url}`,
+                // );
+                // if (window.location.hash.m
             },
             immediate: true,
         },
@@ -137,14 +159,22 @@ export default {
             });
             // we have to use Map instead of a regular object in order to preserve the type of numeric keys
             this.valueCounts = new Map();
-            for (const { properties } of features) {
+            for (const {
+                properties,
+                geometry: { type },
+            } of features) {
                 const value = properties[this.focusedAttribute];
-                const count = this.valueCounts.get(value);
-                this.valueCounts.set(value, (count || 0) + 1);
+                const counts = this.valueCounts.get(value) || [0, 0, 0, 0]; // total, point, line, polygon
+                const countFieldIndex =
+                    ['Point', 'LineString', 'Polygon'].indexOf(type) + 1;
+                counts[0] += 1;
+                counts[countFieldIndex] += 1;
+
+                this.valueCounts.set(value, counts);
             }
             this.sortedValueCounts = Array.from(
                 this.valueCounts.entries(),
-            ).sort(([, a], [, b]) => b - a);
+            ).sort(([, [a]], [, [b]]) => b - a);
         },
         updateValues(newValues) {
             this.values = newValues;
@@ -164,7 +194,7 @@ export default {
                     cb,
                 );
             };
-            if (this.url.match(/\.(pbf|mvt)/)) {
+            if (this.url.match(/\d+\/\d+\/\d+/)) {
                 req(this.url, { encoding: null }, (err, response, body) => {
                     try {
                         body = zlib.gunzipSync(body);
@@ -190,7 +220,7 @@ export default {
                     if (body.center) {
                         window.map.panTo(body.center, { zoom: body.center[2] });
                     }
-                    console.log(body);
+                    // console.log(body);
                 });
             } else if (this.url.match(/\.json/)) {
                 req(this.url, { json: true }, (err, response, body) => {

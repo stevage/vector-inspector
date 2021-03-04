@@ -9,6 +9,7 @@ export default {
     name: 'Map',
     props: {
         xyzUrl: String,
+        tms: Boolean,
         layers: {
             type: Array,
             default: () => [],
@@ -30,22 +31,15 @@ export default {
         xyzUrl: {
             handler() {
                 this.updateSource();
+                this.addLayers();
             },
         },
+        tms() {
+            this.updateSource();
+            this.addLayers();
+        },
         layerStyles(newStyles, oldStyles) {
-            this.map.U.onLoad(() => {
-                this.updateSource();
-                oldStyles.forEach(({ id }) => this.map.U.removeLayer(id));
-                newStyles.forEach(layer => this.map.U.addLayer(layer));
-
-                // this only works if features have id's
-                newStyles
-                    .filter(({ type }) => type === 'fill')
-                    .forEach(({ id }) => this.map.U.hoverFeatureState(id));
-                newStyles
-                    .filter(({ type }) => type === 'line' || type === 'circle')
-                    .forEach(({ id }) => this.map.U.hoverPointer(id));
-            });
+            this.addLayers(oldStyles);
         },
         focus() {
             this.map.U.removeLayer(['focus-line', 'focus-circle']);
@@ -137,6 +131,22 @@ export default {
             this.map.addSource('source', {
                 type: 'vector',
                 tiles: [this.xyzUrl],
+                scheme: this.tms ? 'tms' : 'xyz',
+            });
+        },
+        addLayers(oldStyles = []) {
+            this.map.U.onLoad(() => {
+                this.updateSource();
+                oldStyles.forEach(({ id }) => this.map.U.removeLayer(id));
+                this.layerStyles.forEach(layer => this.map.U.addLayer(layer));
+
+                // this only works if features have id's
+                this.layerStyles
+                    .filter(({ type }) => type === 'fill')
+                    .forEach(({ id }) => this.map.U.hoverFeatureState(id));
+                this.layerStyles
+                    .filter(({ type }) => type === 'line' || type === 'circle')
+                    .forEach(({ id }) => this.map.U.hoverPointer(id));
             });
         },
         resetValues() {
