@@ -103,8 +103,8 @@ export default {
                 return this.tilejsonXyzUrl;
             }
             return this.url.replace(
-                /\d+\/\d+\/\d+/,
-                this.zyx ? '{z}/{y}/{x}' : '{z}/{x}/{y}',
+                /[/=]\d+\/\d+\/\d+/,
+                this.zyx ? '$1{z}/{y}/{x}' : '$1{z}/{x}/{y}',
             );
         },
         tileJsonUrl() {
